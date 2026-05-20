@@ -1,0 +1,25 @@
+# Maintainer: Rushikesh Sakharle <ramsharath@instantly.ai>
+pkgname=ps_mem
+pkgver=1.0.3
+pkgrel=0
+pkgdesc="C port of ps_mem with smaps_rollup optimization"
+url="https://github.com/rushikeshsakharleofficial/ps_mem-c"
+arch="all"
+license="LGPL-2.0-only"
+makedepends="gcc"
+source="${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz"
+builddir="$srcdir/ps_mem-c-${pkgver}"
+
+build() {
+    gcc -O2 -static -o ps_mem ps_mem.c
+    strip ps_mem
+}
+
+check() {
+    ./ps_mem -h | grep -q "Usage"
+}
+
+package() {
+    install -Dm755 ps_mem "$pkgdir/usr/bin/ps_mem"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

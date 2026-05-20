@@ -1,0 +1,20 @@
+PackageIdentifier: rushikeshsakharleofficial.ps_mem
+PackageVersion: 1.0.3
+PackageLocale: en-US
+Publisher: Rushikesh Sakharle
+PublisherUrl: https://github.com/rushikeshsakharleofficial
+PackageName: ps_mem
+PackageUrl: https://github.com/rushikeshsakharleofficial/ps_mem-c
+License: LGPL-2.0
+ShortDescription: C port of ps_mem with smaps_rollup optimization
+Description: Per-program RAM reporter. Uses /proc/smaps_rollup for 2.2x speedup over original.
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/download/v1.0.3/ps_mem_1.0.3_windows_x86_64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: ps_mem.exe
+ManifestType: singleton
+ManifestVersion: 1.6.0

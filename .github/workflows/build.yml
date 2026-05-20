@@ -9,6 +9,7 @@ permissions:
   contents: write
 
 jobs:
+  # ── Linux DEB ──────────────────────────────────────────────────
   build-deb:
     runs-on: ubuntu-latest
     strategy:
@@ -16,7 +17,6 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
-
       - name: Extract version
         id: ver
         run: |
@@ -25,11 +25,9 @@ jobs:
           else
             echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Set up QEMU (arm64)
+      - name: Set up QEMU
         if: matrix.arch == 'arm64'
         uses: docker/setup-qemu-action@v3
-
       - name: Build binary
         env:
           ARCH: ${{ matrix.arch }}
@@ -40,7 +38,6 @@ jobs:
           else
             gcc -O2 -o ps_mem ps_mem.c
           fi
-
       - name: Package DEB
         env:
           VER: ${{ steps.ver.outputs.version }}
@@ -50,15 +47,15 @@ jobs:
           mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/ps-mem"
           install -m755 ps_mem "${PKG}/usr/bin/ps_mem"
           install -m644 README.md "${PKG}/usr/share/doc/ps-mem/README.md"
-          printf 'Package: ps-mem\nVersion: %s\nArchitecture: %s\nMaintainer: Rushikesh Sakharle <ramsharath@instantly.ai>\nDepends: libc6\nSection: utils\nPriority: optional\nHomepage: https://github.com/rushikeshsakharleofficial/ps_mem-c\nDescription: C port of ps_mem with smaps_rollup optimization\n Reads /proc/<pid>/smaps_rollup for 2.2x speedup over original.\n Falls back to full smaps on kernels older than 4.4.\n' \
+          printf 'Package: ps-mem\nVersion: %s\nArchitecture: %s\nMaintainer: Rushikesh Sakharle <ramsharath@instantly.ai>\nDepends: libc6\nSection: utils\nPriority: optional\nHomepage: https://github.com/rushikeshsakharleofficial/ps_mem-c\nDescription: C port of ps_mem with smaps_rollup optimization\n Reads /proc/<pid>/smaps_rollup for 2.2x speedup over original.\n' \
             "$VER" "$ARCH" > "${PKG}/DEBIAN/control"
           dpkg-deb --build "${PKG}"
-
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.arch }}
           path: '*.deb'
 
+  # ── Linux RPM ──────────────────────────────────────────────────
   build-rpm:
     runs-on: ubuntu-latest
     container:
@@ -68,26 +65,20 @@ jobs:
         arch: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v4
-
       - name: Install build tools
         env:
           ARCH: ${{ matrix.arch }}
         run: |
           dnf install -y gcc rpm-build
-          if [ "$ARCH" = "aarch64" ]; then
-            dnf install -y gcc-aarch64-linux-gnu || true
-          fi
-
+          if [ "$ARCH" = "aarch64" ]; then dnf install -y gcc-aarch64-linux-gnu || true; fi
       - name: Extract version
         id: ver
         run: |
           if echo "${GITHUB_REF}" | grep -q '^refs/tags/'; then
-            VER=$(echo "${GITHUB_REF_NAME}" | sed 's/^v//')
+            echo "version=$(echo "${GITHUB_REF_NAME}" | sed 's/^v//')" >> "$GITHUB_OUTPUT"
           else
-            VER="0.0.0"
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
           fi
-          echo "version=${VER}" >> "$GITHUB_OUTPUT"
-
       - name: Build binary
         env:
           ARCH: ${{ matrix.arch }}
@@ -97,35 +88,114 @@ jobs:
           else
             gcc -O2 -o ps_mem ps_mem.c
           fi
-
       - name: Build RPM
         env:
           VER: ${{ steps.ver.outputs.version }}
           ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
           mkdir -p "ps_mem-${VER}"
           cp ps_mem ps_mem.c README.md "ps_mem-${VER}/"
           tar czf ~/rpmbuild/SOURCES/ps_mem-${VER}.tar.gz "ps_mem-${VER}/"
-
           cp packaging/ps_mem.spec ~/rpmbuild/SPECS/ps_mem.spec
-
-          rpmbuild -ba \
-            --define "pkg_version ${VER}" \
-            --target "${ARCH}" \
-            ~/rpmbuild/SPECS/ps_mem.spec
-
+          rpmbuild -ba --define "pkg_version ${VER}" --target "${ARCH}" ~/rpmbuild/SPECS/ps_mem.spec
           find ~/rpmbuild/RPMS -name '*.rpm' ! -name '*.src.rpm' -exec cp {} . \;
-          find ~/rpmbuild/SRPMS -name '*.src.rpm' -exec cp {} . \;
-
       - uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.arch }}
           path: '*.rpm'
 
+  # ── Alpine musl static ─────────────────────────────────────────
+  build-alpine:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+    steps:
+      - name: Install deps
+        run: apk add --no-cache gcc musl-dev git
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: ver
+        run: |
+          if echo "${GITHUB_REF}" | grep -q '^refs/tags/'; then
+            echo "version=$(echo "${GITHUB_REF_NAME}" | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build static binary
+        run: gcc -O2 -static -o ps_mem ps_mem.c && strip ps_mem
+      - name: Package
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          tar czf ps_mem_${VER}_linux_x86_64_musl.tar.gz ps_mem README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alpine-musl
+          path: '*.tar.gz'
+
+  # ── macOS ──────────────────────────────────────────────────────
+  build-macos:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build
+        run: cc -O2 -o ps_mem ps_mem.c
+      - name: Package
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          tar czf ps_mem_${VER}_darwin_${ARCH}.tar.gz ps_mem README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: '*.tar.gz'
+
+  # ── Windows (cross-compile mingw) ──────────────────────────────
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install mingw
+        run: sudo apt-get install -y gcc-mingw-w64-x86-64
+      - name: Build
+        run: x86_64-w64-mingw32-gcc -O2 -o ps_mem.exe ps_mem.c -lpsapi
+      - name: Package
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+        run: zip ps_mem_${VER}_windows_x86_64.zip ps_mem.exe README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: '*.zip'
+
+  # ── Release ────────────────────────────────────────────────────
   release:
-    needs: [build-deb, build-rpm]
+    needs: [build-deb, build-rpm, build-alpine, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -133,10 +203,7 @@ jobs:
         with:
           merge-multiple: true
           path: dist/
-
-      - name: List packages
-        run: ls -lh dist/
-
+      - run: ls -lh dist/
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

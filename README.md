@@ -20,15 +20,36 @@ Runtime is dominated by kernel `/proc` I/O (`sys` time). The rollup optimization
 
 ## Install
 
-### Package manager repo (APT / DNF) — recommended
-
-Add the repo once, then get updates via normal package manager upgrades.
+### One-liner — all distros, macOS, Linux
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/setup-repo.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/install.sh | sudo bash
 ```
 
-**Manual APT setup (Debian / Ubuntu):**
+Detects: Debian · Ubuntu · RHEL · Rocky · Fedora · CentOS · AlmaLinux · Arch · Manjaro · Alpine · openSUSE · Void · NixOS · macOS
+
+### macOS (Homebrew)
+
+```sh
+brew tap rushikeshsakharleofficial/ps_mem
+brew install ps_mem
+```
+
+### Windows (Scoop)
+
+```sh
+scoop bucket add ps_mem https://github.com/rushikeshsakharleofficial/ps_mem-c
+scoop install ps_mem
+```
+
+### Windows (winget)
+
+```sh
+winget install rushikeshsakharleofficial.ps_mem
+```
+
+### APT repo (Debian / Ubuntu — persistent updates)
+
 ```sh
 BASE=https://rushikeshsakharleofficial.github.io/ps_mem-c
 curl -fsSL ${BASE}/public.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps-mem.gpg
@@ -37,7 +58,8 @@ echo "deb [signed-by=/usr/share/keyrings/ps-mem.gpg] ${BASE}/apt /" \
 sudo apt-get update && sudo apt-get install -y ps-mem
 ```
 
-**Manual DNF/YUM setup (RHEL / Rocky / Fedora):**
+### DNF/YUM repo (RHEL / Rocky / Fedora — persistent updates)
+
 ```sh
 BASE=https://rushikeshsakharleofficial.github.io/ps_mem-c
 sudo rpm --import ${BASE}/public.gpg
@@ -52,33 +74,29 @@ EOF
 sudo dnf install -y ps_mem
 ```
 
-### One-time binary install
+### Arch Linux (AUR)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/install.sh | sudo bash
+yay -S ps_mem
+# or: paru -S ps_mem
 ```
 
-### DEB (Debian / Ubuntu)
+### Alpine Linux
 
 ```sh
-curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps-mem_<version>_amd64.deb
-sudo dpkg -i ps-mem_<version>_amd64.deb
+curl -fsSL https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem_<version>_linux_x86_64_musl.tar.gz | tar xz
+sudo install -m755 ps_mem /usr/bin/ps_mem
 ```
 
-### RPM (RHEL / Rocky / Fedora)
+### Build from source (any platform)
 
 ```sh
-sudo rpm -Uvh https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-<version>-1.el9.x86_64.rpm
+# Linux / macOS
+gcc -O2 -o ps_mem ps_mem.c && sudo cp ps_mem /usr/bin/ps_mem
+
+# Windows (mingw)
+x86_64-w64-mingw32-gcc -O2 -o ps_mem.exe ps_mem.c -lpsapi
 ```
-
-### Build from source
-
-```sh
-gcc -O2 -o ps_mem ps_mem.c
-sudo cp ps_mem /usr/bin/ps_mem
-```
-
-Requires: Linux 3.2+ (glibc 2.2.5+). `smaps_rollup` fallback to full `smaps` on older kernels.
 
 ## Usage
 

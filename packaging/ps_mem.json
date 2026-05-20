@@ -1,0 +1,14 @@
+{
+  "version": "1.0.3",
+  "description": "C port of ps_mem with smaps_rollup optimization — per-program RAM reporter",
+  "homepage": "https://github.com/rushikeshsakharleofficial/ps_mem-c",
+  "license": "LGPL-2.0",
+  "url": "https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/download/v1.0.3/ps_mem_1.0.3_windows_x86_64.zip",
+  "bin": ["ps_mem.exe", ["ps_mem.exe", "ps_mem"]],
+  "checkver": {
+    "github": "https://github.com/rushikeshsakharleofficial/ps_mem-c"
+  },
+  "autoupdate": {
+    "url": "https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/download/v$version/ps_mem_$version_windows_x86_64.zip"
+  }
+}
