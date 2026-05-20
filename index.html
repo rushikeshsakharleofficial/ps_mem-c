@@ -1,1 +1,27 @@
-ps_mem package repository
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>ps_mem package repository</title></head>
+<body>
+<h1>ps_mem package repository</h1>
+<p>Latest: <strong>v1.0.3</strong></p>
+<h2>APT (Debian / Ubuntu)</h2>
+<pre>
+curl -fsSL https://rushikeshsakharleofficial.github.io/ps_mem-c/public.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps-mem.gpg
+echo "deb [signed-by=/usr/share/keyrings/ps-mem.gpg] https://rushikeshsakharleofficial.github.io/ps_mem-c/apt /" | sudo tee /etc/apt/sources.list.d/ps-mem.list
+sudo apt-get update &amp;&amp; sudo apt-get install -y ps-mem
+</pre>
+<h2>DNF / YUM (RHEL / Rocky / Fedora)</h2>
+<pre>
+sudo rpm --import https://rushikeshsakharleofficial.github.io/ps_mem-c/public.gpg
+sudo tee /etc/yum.repos.d/ps-mem.repo &lt;&lt;'REPO'
+[ps-mem]
+name=ps_mem
+baseurl=https://rushikeshsakharleofficial.github.io/ps_mem-c/rpm/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://rushikeshsakharleofficial.github.io/ps_mem-c/public.gpg
+REPO
+sudo dnf install -y ps_mem
+</pre>
+</body>
+</html>
