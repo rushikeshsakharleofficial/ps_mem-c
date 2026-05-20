@@ -18,7 +18,37 @@ Benchmarked on RHEL 9, x86_64, ~300 processes:
 
 Runtime is dominated by kernel `/proc` I/O (`sys` time). The rollup optimization cuts I/O proportionally to process count.
 
-## Build
+## Install
+
+### One-liner (Debian/Ubuntu/RHEL/Rocky/Fedora, x86\_64 or arm64)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/install.sh | sudo bash
+```
+
+### DEB (Debian / Ubuntu)
+
+```sh
+# amd64
+curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-c_<version>_amd64.deb
+sudo dpkg -i ps_mem-c_<version>_amd64.deb
+
+# arm64
+curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-c_<version>_arm64.deb
+sudo dpkg -i ps_mem-c_<version>_arm64.deb
+```
+
+### RPM (RHEL / Rocky / Fedora)
+
+```sh
+# x86_64
+sudo rpm -Uvh https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-c-<version>-1.el9.x86_64.rpm
+
+# aarch64
+sudo rpm -Uvh https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-c-<version>-1.el9.aarch64.rpm
+```
+
+### Build from source
 
 ```sh
 gcc -O2 -o ps_mem ps_mem.c
