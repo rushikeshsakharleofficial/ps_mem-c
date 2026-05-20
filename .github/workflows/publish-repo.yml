@@ -20,12 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: gh-pages
-          fetch-depth: 0
-        continue-on-error: true
-
-      - uses: actions/checkout@v4
-        with:
           path: src
 
       - name: Resolve tag
@@ -37,6 +31,18 @@ jobs:
             echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check GPG key availability
+        id: gpg-check
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [ -n "$GPG_PRIVATE_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Warning: GPG_PRIVATE_KEY secret not set — packages will not be signed"
+          fi
+
       - name: Install repo tools
         run: sudo apt-get install -y dpkg-dev apt-utils createrepo-c
 
@@ -46,7 +52,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           mkdir -p _dl
-          gh release download "$TAG" --dir _dl -R "${{ github.repository }}" || true
+          gh release download "$TAG" --dir _dl -R "${{ github.repository }}"
           ls -lh _dl/
 
       - name: Build APT repo
@@ -56,70 +62,64 @@ jobs:
           cd apt
           dpkg-scanpackages -m . > Packages
           gzip -k -f Packages
-          cat > ../apt_release_conf <<'EOF'
-          Origin: ps_mem
-          Label: ps_mem
-          Suite: stable
-          Codename: stable
-          Architectures: amd64 arm64
-          Components: main
-          Description: C port of ps_mem with smaps_rollup optimization
-          EOF
-          apt-ftparchive -c ../apt_release_conf release . > Release
+          apt-ftparchive release . > Release
 
       - name: Build YUM repos
         run: |
           for arch in x86_64 aarch64; do
             mkdir -p "rpm/${arch}"
             find _dl -name "*${arch}.rpm" ! -name "*.src.rpm" -exec cp {} "rpm/${arch}/" \;
-            if ls "rpm/${arch}"/*.rpm 2>/dev/null | head -1; then
+            if ls "rpm/${arch}"/*.rpm 2>/dev/null | head -1 > /dev/null 2>&1; then
               createrepo_c "rpm/${arch}/"
             fi
           done
 
-      - name: Sign packages (if GPG key available)
-        if: secrets.GPG_PRIVATE_KEY != ''
+      - name: Import GPG key
+        if: steps.gpg-check.outputs.available == 'true'
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           echo "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
           KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2 | head -1)
+          echo "KEY_ID=${KEY_ID}" >> "$GITHUB_ENV"
 
-          # Sign APT Release
+      - name: Sign APT Release
+        if: steps.gpg-check.outputs.available == 'true'
+        run: |
           gpg --batch --yes --armor --detach-sign \
             --default-key "$KEY_ID" -o apt/Release.gpg apt/Release
           gpg --batch --yes --clearsign \
             --default-key "$KEY_ID" -o apt/InRelease apt/Release
 
-          # Sign YUM repomd.xml files
+      - name: Sign YUM repomd.xml
+        if: steps.gpg-check.outputs.available == 'true'
+        run: |
           for arch in x86_64 aarch64; do
-            if [ -f "rpm/${arch}/repodata/repomd.xml" ]; then
+            REPOMD="rpm/${arch}/repodata/repomd.xml"
+            if [ -f "$REPOMD" ]; then
               gpg --batch --yes --armor --detach-sign \
-                --default-key "$KEY_ID" \
-                -o "rpm/${arch}/repodata/repomd.xml.asc" \
-                "rpm/${arch}/repodata/repomd.xml"
+                --default-key "$KEY_ID" -o "${REPOMD}.asc" "$REPOMD"
             fi
           done
 
-          # Copy public key for users
-          gpg --armor --export "$KEY_ID" > public.gpg
-
-      - name: Copy public key from src
+      - name: Copy public key
         run: |
-          if [ -f src/public.gpg ] && [ ! -f public.gpg ]; then
+          if [ -f src/public.gpg ]; then
             cp src/public.gpg public.gpg
           fi
 
-      - name: Generate repo index page
+      - name: Generate index page
         env:
           TAG: ${{ steps.tag.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          BASE="https://${REPO%%/*}.github.io/${REPO##*/}"
+          OWNER="${REPO%%/*}"
+          NAME="${REPO##*/}"
+          BASE="https://${OWNER}.github.io/${NAME}"
           cat > index.html <<EOF
           <!DOCTYPE html>
           <html>
-          <head><title>ps_mem package repository</title></head>
+          <head><meta charset="utf-8"><title>ps_mem package repository</title></head>
           <body>
           <h1>ps_mem package repository</h1>
           <p>Latest: <strong>${TAG}</strong></p>
@@ -127,7 +127,7 @@ jobs:
           <pre>
           curl -fsSL ${BASE}/public.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps-mem.gpg
           echo "deb [signed-by=/usr/share/keyrings/ps-mem.gpg] ${BASE}/apt /" | sudo tee /etc/apt/sources.list.d/ps-mem.list
-          sudo apt-get update && sudo apt-get install -y ps-mem
+          sudo apt-get update &amp;&amp; sudo apt-get install -y ps-mem
           </pre>
           <h2>DNF / YUM (RHEL / Rocky / Fedora)</h2>
           <pre>
@@ -153,4 +153,4 @@ jobs:
           publish_dir: .
           publish_branch: gh-pages
           keep_files: true
-          exclude_assets: 'src/**,_dl/**,apt_release_conf'
+          exclude_assets: 'src/**,_dl/**'
