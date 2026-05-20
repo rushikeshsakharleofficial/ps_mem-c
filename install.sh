@@ -16,17 +16,17 @@ esac
 LATEST=$(curl -fsSL "$API" | grep '"tag_name"' | cut -d'"' -f4)
 VER="${LATEST#v}"
 
-echo "Installing ps_mem-c ${LATEST} (${ARCH})..."
+echo "Installing ps_mem ${LATEST} (${ARCH})..."
 
 if [ -f /etc/debian_version ]; then
-  URL="https://github.com/${REPO}/releases/download/${LATEST}/ps_mem-c_${VER}_${DEB_ARCH}.deb"
-  TMP=$(mktemp /tmp/ps_mem-c.XXXXXX.deb)
+  URL="https://github.com/${REPO}/releases/download/${LATEST}/ps_mem_${VER}_${DEB_ARCH}.deb"
+  TMP=$(mktemp /tmp/ps_mem.XXXXXX.deb)
   curl -fsSL "$URL" -o "$TMP"
   dpkg -i "$TMP"
   rm -f "$TMP"
 
 elif [ -f /etc/redhat-release ] || [ -f /etc/rocky-release ] || [ -f /etc/fedora-release ]; then
-  URL="https://github.com/${REPO}/releases/download/${LATEST}/ps_mem-c-${VER}-1.el9.${RPM_ARCH}.rpm"
+  URL="https://github.com/${REPO}/releases/download/${LATEST}/ps_mem-${VER}-1.el9.${RPM_ARCH}.rpm"
   rpm -Uvh --force "$URL"
 
 else

@@ -46,12 +46,12 @@ jobs:
           VER: ${{ steps.ver.outputs.version }}
           ARCH: ${{ matrix.arch }}
         run: |
-          PKG="ps_mem-c_${VER}_${ARCH}"
-          mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/ps_mem-c"
+          PKG="ps_mem_${VER}_${ARCH}"
+          mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/ps_mem"
           install -m755 ps_mem "${PKG}/usr/bin/ps_mem"
-          install -m644 README.md "${PKG}/usr/share/doc/ps_mem-c/README.md"
+          install -m644 README.md "${PKG}/usr/share/doc/ps_mem/README.md"
           cat > "${PKG}/DEBIAN/control" <<EOF
-          Package: ps_mem-c
+          Package: ps_mem
           Version: ${VER}
           Architecture: ${ARCH}
           Maintainer: Rushikesh Sakharle <ramsharath@instantly.ai>
@@ -116,16 +116,16 @@ jobs:
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-          mkdir -p "ps_mem-c-${VER}"
-          cp ps_mem ps_mem.c README.md "ps_mem-c-${VER}/"
-          tar czf ~/rpmbuild/SOURCES/ps_mem-c-${VER}.tar.gz "ps_mem-c-${VER}/"
+          mkdir -p "ps_mem-${VER}"
+          cp ps_mem ps_mem.c README.md "ps_mem-${VER}/"
+          tar czf ~/rpmbuild/SOURCES/ps_mem-${VER}.tar.gz "ps_mem-${VER}/"
 
-          cp packaging/ps_mem-c.spec ~/rpmbuild/SPECS/ps_mem-c.spec
+          cp packaging/ps_mem.spec ~/rpmbuild/SPECS/ps_mem.spec
 
           rpmbuild -ba \
             --define "pkg_version ${VER}" \
             --target "${ARCH}" \
-            ~/rpmbuild/SPECS/ps_mem-c.spec
+            ~/rpmbuild/SPECS/ps_mem.spec
 
           find ~/rpmbuild/RPMS -name '*.rpm' ! -name '*.src.rpm' -exec cp {} . \;
           find ~/rpmbuild/SRPMS -name '*.src.rpm' -exec cp {} . \;

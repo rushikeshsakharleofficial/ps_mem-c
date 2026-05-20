@@ -1,4 +1,4 @@
-Name:           ps_mem-c
+Name:           ps_mem
 Version:        %{pkg_version}
 Release:        1%{?dist}
 Summary:        C port of ps_mem with smaps_rollup optimization
