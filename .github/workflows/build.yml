@@ -46,23 +46,12 @@ jobs:
           VER: ${{ steps.ver.outputs.version }}
           ARCH: ${{ matrix.arch }}
         run: |
-          PKG="ps_mem_${VER}_${ARCH}"
-          mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/ps_mem"
+          PKG="ps-mem_${VER}_${ARCH}"
+          mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/ps-mem"
           install -m755 ps_mem "${PKG}/usr/bin/ps_mem"
-          install -m644 README.md "${PKG}/usr/share/doc/ps_mem/README.md"
-          cat > "${PKG}/DEBIAN/control" <<EOF
-          Package: ps_mem
-          Version: ${VER}
-          Architecture: ${ARCH}
-          Maintainer: Rushikesh Sakharle <ramsharath@instantly.ai>
-          Depends: libc6
-          Section: utils
-          Priority: optional
-          Homepage: https://github.com/rushikeshsakharleofficial/ps_mem-c
-          Description: C port of ps_mem with smaps_rollup optimization
-           Reads /proc/<pid>/smaps_rollup for 2.2x speedup over original.
-           Falls back to full smaps on kernels older than 4.4.
-          EOF
+          install -m644 README.md "${PKG}/usr/share/doc/ps-mem/README.md"
+          printf 'Package: ps-mem\nVersion: %s\nArchitecture: %s\nMaintainer: Rushikesh Sakharle <ramsharath@instantly.ai>\nDepends: libc6\nSection: utils\nPriority: optional\nHomepage: https://github.com/rushikeshsakharleofficial/ps_mem-c\nDescription: C port of ps_mem with smaps_rollup optimization\n Reads /proc/<pid>/smaps_rollup for 2.2x speedup over original.\n Falls back to full smaps on kernels older than 4.4.\n' \
+            "$VER" "$ARCH" > "${PKG}/DEBIAN/control"
           dpkg-deb --build "${PKG}"
 
       - uses: actions/upload-artifact@v4
