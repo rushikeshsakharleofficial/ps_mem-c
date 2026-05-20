@@ -20,7 +20,39 @@ Runtime is dominated by kernel `/proc` I/O (`sys` time). The rollup optimization
 
 ## Install
 
-### One-liner (Debian/Ubuntu/RHEL/Rocky/Fedora, x86\_64 or arm64)
+### Package manager repo (APT / DNF) — recommended
+
+Add the repo once, then get updates via normal package manager upgrades.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/setup-repo.sh | sudo bash
+```
+
+**Manual APT setup (Debian / Ubuntu):**
+```sh
+BASE=https://rushikeshsakharleofficial.github.io/ps_mem-c
+curl -fsSL ${BASE}/public.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps-mem.gpg
+echo "deb [signed-by=/usr/share/keyrings/ps-mem.gpg] ${BASE}/apt /" \
+  | sudo tee /etc/apt/sources.list.d/ps-mem.list
+sudo apt-get update && sudo apt-get install -y ps-mem
+```
+
+**Manual DNF/YUM setup (RHEL / Rocky / Fedora):**
+```sh
+BASE=https://rushikeshsakharleofficial.github.io/ps_mem-c
+sudo rpm --import ${BASE}/public.gpg
+sudo tee /etc/yum.repos.d/ps-mem.repo <<EOF
+[ps-mem]
+name=ps_mem
+baseurl=${BASE}/rpm/\$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=${BASE}/public.gpg
+EOF
+sudo dnf install -y ps_mem
+```
+
+### One-time binary install
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/main/install.sh | sudo bash
@@ -29,23 +61,14 @@ curl -fsSL https://raw.githubusercontent.com/rushikeshsakharleofficial/ps_mem-c/
 ### DEB (Debian / Ubuntu)
 
 ```sh
-# amd64
-curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem_<version>_amd64.deb
-sudo dpkg -i ps_mem_<version>_amd64.deb
-
-# arm64
-curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem_<version>_arm64.deb
-sudo dpkg -i ps_mem_<version>_arm64.deb
+curl -LO https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps-mem_<version>_amd64.deb
+sudo dpkg -i ps-mem_<version>_amd64.deb
 ```
 
 ### RPM (RHEL / Rocky / Fedora)
 
 ```sh
-# x86_64
 sudo rpm -Uvh https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-<version>-1.el9.x86_64.rpm
-
-# aarch64
-sudo rpm -Uvh https://github.com/rushikeshsakharleofficial/ps_mem-c/releases/latest/download/ps_mem-<version>-1.el9.aarch64.rpm
 ```
 
 ### Build from source

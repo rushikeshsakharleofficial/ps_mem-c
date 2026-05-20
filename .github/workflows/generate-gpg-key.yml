@@ -1,0 +1,52 @@
+name: Generate GPG Signing Key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate GPG keypair
+        id: gpg
+        run: |
+          cat > /tmp/gpg-params <<EOF
+          %no-protection
+          Key-Type: RSA
+          Key-Length: 4096
+          Subkey-Type: RSA
+          Subkey-Length: 4096
+          Name-Real: ps_mem Packages
+          Name-Email: packages@ps-mem
+          Expire-Date: 0
+          %commit
+          EOF
+          gpg --batch --gen-key /tmp/gpg-params
+          KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
+          gpg --armor --export "${KEY_ID}" > public.gpg
+          PRIVATE_KEY=$(gpg --armor --export-secret-keys "${KEY_ID}" | base64 -w0)
+          echo "::add-mask::${PRIVATE_KEY}"
+          echo "private_key=${PRIVATE_KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Print setup instructions
+        run: |
+          echo "=========================================="
+          echo "KEY GENERATED. Next steps:"
+          echo "1. Copy the 'private_key' output value from the step above"
+          echo "2. Go to Settings > Secrets > Actions"
+          echo "3. Add secret named: GPG_PRIVATE_KEY"
+          echo "4. Paste the base64-encoded private key as the value"
+          echo "=========================================="
+
+      - name: Commit public key
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public.gpg
+          git diff --cached --quiet || git commit -m "Add GPG public key for package repo signing"
+          git push

@@ -1,0 +1,156 @@
+name: Publish Package Repos
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v1.0.3)
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+        continue-on-error: true
+
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install repo tools
+        run: sudo apt-get install -y dpkg-dev apt-utils createrepo-c
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p _dl
+          gh release download "$TAG" --dir _dl -R "${{ github.repository }}" || true
+          ls -lh _dl/
+
+      - name: Build APT repo
+        run: |
+          mkdir -p apt
+          cp _dl/*.deb apt/ 2>/dev/null || true
+          cd apt
+          dpkg-scanpackages -m . > Packages
+          gzip -k -f Packages
+          cat > ../apt_release_conf <<'EOF'
+          Origin: ps_mem
+          Label: ps_mem
+          Suite: stable
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: C port of ps_mem with smaps_rollup optimization
+          EOF
+          apt-ftparchive -c ../apt_release_conf release . > Release
+
+      - name: Build YUM repos
+        run: |
+          for arch in x86_64 aarch64; do
+            mkdir -p "rpm/${arch}"
+            find _dl -name "*${arch}.rpm" ! -name "*.src.rpm" -exec cp {} "rpm/${arch}/" \;
+            if ls "rpm/${arch}"/*.rpm 2>/dev/null | head -1; then
+              createrepo_c "rpm/${arch}/"
+            fi
+          done
+
+      - name: Sign packages (if GPG key available)
+        if: secrets.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
+          KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2 | head -1)
+
+          # Sign APT Release
+          gpg --batch --yes --armor --detach-sign \
+            --default-key "$KEY_ID" -o apt/Release.gpg apt/Release
+          gpg --batch --yes --clearsign \
+            --default-key "$KEY_ID" -o apt/InRelease apt/Release
+
+          # Sign YUM repomd.xml files
+          for arch in x86_64 aarch64; do
+            if [ -f "rpm/${arch}/repodata/repomd.xml" ]; then
+              gpg --batch --yes --armor --detach-sign \
+                --default-key "$KEY_ID" \
+                -o "rpm/${arch}/repodata/repomd.xml.asc" \
+                "rpm/${arch}/repodata/repomd.xml"
+            fi
+          done
+
+          # Copy public key for users
+          gpg --armor --export "$KEY_ID" > public.gpg
+
+      - name: Copy public key from src
+        run: |
+          if [ -f src/public.gpg ] && [ ! -f public.gpg ]; then
+            cp src/public.gpg public.gpg
+          fi
+
+      - name: Generate repo index page
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          BASE="https://${REPO%%/*}.github.io/${REPO##*/}"
+          cat > index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head><title>ps_mem package repository</title></head>
+          <body>
+          <h1>ps_mem package repository</h1>
+          <p>Latest: <strong>${TAG}</strong></p>
+          <h2>APT (Debian / Ubuntu)</h2>
+          <pre>
+          curl -fsSL ${BASE}/public.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ps-mem.gpg
+          echo "deb [signed-by=/usr/share/keyrings/ps-mem.gpg] ${BASE}/apt /" | sudo tee /etc/apt/sources.list.d/ps-mem.list
+          sudo apt-get update && sudo apt-get install -y ps-mem
+          </pre>
+          <h2>DNF / YUM (RHEL / Rocky / Fedora)</h2>
+          <pre>
+          sudo rpm --import ${BASE}/public.gpg
+          sudo tee /etc/yum.repos.d/ps-mem.repo &lt;&lt;'REPO'
+          [ps-mem]
+          name=ps_mem
+          baseurl=${BASE}/rpm/\$basearch/
+          enabled=1
+          gpgcheck=1
+          gpgkey=${BASE}/public.gpg
+          REPO
+          sudo dnf install -y ps_mem
+          </pre>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
+          keep_files: true
+          exclude_assets: 'src/**,_dl/**,apt_release_conf'
